@@ -1,0 +1,138 @@
+.tailor-modal {
+	position: fixed;
+	max-height: 80vh;
+	width: 80%;
+	top: 50%;
+	left: 50%;
+	text-align: center;
+	box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+	background-color: var(--tailor-brown);
+	transform: translate(-50%, -50%);
+	padding: 10px;
+	border-radius: 10px;
+	z-index: 999999999999999999;
+	overflow: auto; /* Enable scroll if needed */
+
+	/* display: flex;
+	align-items: center; */
+}
+
+/* Modal Content/Box */
+.tailor-modal-content {
+	padding: 10px;
+	object-fit: contain;
+}
+
+.tailor-modal-close {
+	color: #444;
+	float: right;
+	font-size: 28px;
+	font-weight: bold;
+}
+
+.tailor-modal-close:hover,
+.tailor-modal-close:focus {
+	color: black;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+#tailor-title {
+	font-size: 50px;
+	font-weight: bold;
+	color: var(--tailor-lightbrown);
+	margin: 10px 0;
+}
+
+#source-image-container {
+	display: inline-block;
+	width: 20%;
+	margin-right: 25px;
+	vertical-align: top;
+}
+
+#tailor-selection-container {
+	display: inline-block;
+	top: 50%;
+	width: 70%;
+	margin-left: 25px;
+	vertical-align: top;
+	margin-bottom: 30px;
+
+	/* position: absolute;
+	top: 50%;
+	left: 70%;
+	transform: translate(-50%, -50%); */
+}
+
+#source-img {
+	display: block;
+	max-height: 10%;
+	max-width: 100%;
+	margin: auto 10px; /* Center the image horizontally and add some margin below */
+	object-fit: contain;
+}
+
+.explanatory-text-container {
+	color: var(--tailor-darkbrown);
+	margin: 0;
+}
+
+#button-container {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	grid-gap: 5px;
+	margin: 10px 0;
+}
+
+.btn {
+	display: inline-block;
+	padding: 5px 3px;
+	margin: 2px;
+	border: none;
+	background-color: #f5f5f5;
+	color: #333;
+	cursor: pointer;
+	font-size: 20px;
+	border-radius: 5px;
+	transition: background-color 0.3s ease;
+}
+
+.btn.like {
+	background-color: var(--tailor-green);
+	color: #fff;
+}
+
+.btn.dislike {
+	background-color: var(--tailor-red);
+	color: #fff;
+}
+
+#tailor-input-text-area {
+	display: block;
+	resize: none;
+	height: 75px;
+	width: 100%;
+	font-size: 20px;
+	margin: 10px auto;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+#tailor-input-text-area::placeholder {
+	color: var(--tailor-darkbrown);
+}
+
+#tailor-button {
+	background-color: var(--tailor-darkbrown);
+	color: var(--tailor-lightbrown);
+	font-size: 20px;
+	border-radius: 5px;
+	padding: 10px 20px;
+	cursor: pointer;
+	transition: background-color 0.3s ease;
+}
+
+#tailor-button:hover {
+	background-color: var(--tailor-brown);
+}

@@ -1,0 +1,95 @@
+body {
+	background: linear-gradient(
+		to bottom,
+		var(--tailor-darkbrown),
+		var(--tailor-brown)
+	);
+	margin: 0;
+	padding: 0;
+}
+
+#header {
+	/* background: linear-gradient(to bottom, #9f8962, var(--tailor-brown)); */
+	/* background: #9f8962; */
+	background: var(--tailor-darkbrown);
+	padding: 20px;
+	text-align: center;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+#header h1 {
+	font-family: Futura, sans-serif;
+	font-size: 3em;
+	font-weight: bold;
+	color: var(--tailor-lightbrown);
+	margin: 0;
+}
+
+#carousel-wrapper {
+	margin: auto;
+	padding-top: 40px;
+	width: 100%;
+	height: 500px;
+	overflow-x: auto;
+	white-space: nowrap;
+	display: flex;
+}
+
+#source-image {
+	width: 400px;
+	height: 500px;
+	margin-left: 50px; /* Add margin to center the image vertically */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+#source-image img {
+	width: 320px;
+	height: 480px;
+	padding: 80px;
+}
+
+#carousel {
+	margin: auto;
+	width: 80%;
+	height: 450px;
+	overflow-x: auto; /* Add horizontal scroll */
+	white-space: nowrap; /* Prevent images from wrapping */
+	position: relative;
+}
+
+#carousel a {
+	display: inline-block; /* Use inline-block to prevent images from stacking */
+}
+
+#carousel img {
+	width: 280px;
+	height: 360px;
+	padding: 10px;
+	margin-right: 25px;
+	box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.3);
+}
+
+#carousel img.active {
+	opacity: 1;
+}
+
+/* Style the scrollbar */
+::-webkit-scrollbar {
+	width: 10px;
+	background-color: var(--tailor-brown);
+}
+
+/* Style the thumb */
+::-webkit-scrollbar-thumb {
+	background-color: var(--tailor-darkbrown);
+	border-radius: 5px;
+}
+
+/* Style the track */
+::-webkit-scrollbar-track {
+	background-color: var(--tailor-brown);
+}

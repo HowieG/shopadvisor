@@ -1,0 +1,32 @@
+{
+  "name": "tailor",
+  "version": "1.0.0",
+  "description": "Copilot for online shopping",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HowieG/TaiLOR.git"
+  },
+  "keywords": [
+    "img2txt",
+    "online",
+    "shopping",
+    "copilot"
+  ],
+  "author": "Howard Gil",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/HowieG/TaiLOR/issues"
+  },
+  "homepage": "https://github.com/HowieG/TaiLOR#readme",
+  "devDependencies": {
+    "eslint": "^8.37.0",
+    "prettier": "^2.8.7"
+  },
+  "dependencies": {
+    "replicate": "^0.9.0"
+  }
+}

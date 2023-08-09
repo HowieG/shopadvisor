@@ -1,0 +1,19 @@
+# Ignore .chrome directory
+.chrome/
+
+# Ignore node_modules directory
+node_modules/
+
+# Ignore any other temporary files or build artifacts
+*.log
+*.tmp
+*.swp
+*.bak
+*.pyc
+*.class
+*.o
+*.a
+*.exe
+*.dll
+*.so
+*.dylib

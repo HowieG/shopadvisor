@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<title>TaiLOR Modal</title>
+		<style>
+			body {
+				margin: 0;
+				padding: 0;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				height: 100vh;
+				background-color: #d2bea4;
+			}
+
+			#source-image img {
+				height: 400px;
+			}
+
+			.container {
+				width: 30%;
+				text-align: center;
+				padding: 30px;
+				border-radius: 10px;
+				box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+				background-color: #d2bea4;
+			}
+
+			.btn {
+				display: inline-block;
+				padding: 3px 10px;
+				margin: 2px;
+				border: none;
+				background-color: #f5f5f5;
+				color: #333;
+				cursor: pointer;
+				font-size: 16px;
+				border-radius: 5px;
+				transition: background-color 0.3s ease;
+			}
+
+			.btn.green {
+				background-color: #28a745;
+				color: #fff;
+			}
+
+			.btn.red {
+				background-color: #dc3545;
+				color: #fff;
+			}
+
+			#tailor {
+				background-color: #d2bea4;
+				color: #fff;
+				font-size: 20px;
+				border-radius: 5px;
+				padding: 10px 20px;
+				cursor: pointer;
+				transition: background-color 0.3s ease;
+			}
+
+			#tailor:hover {
+				background-color: #9f8962;
+			}
+
+			#button-container {
+				display: grid;
+				grid-template-columns: repeat(5, 1fr);
+				grid-gap: 10px;
+				margin: 25px;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<div id="source-image">
+				<img
+					src="https://img1.homary.com/fit-in/800x800/filters:format(webp)/mall/2021/04/10/5810100222ed416faecb844f2a5750ee.jpg"
+				/>
+			</div>
+			<div>
+				<p style="color: #7d6b4c">
+					Stable Diffusion img2txt description
+				</p>
+			</div>
+			<div>
+				<p style="color: #7d6b4c">
+					Click once on the features you like, twice on the features
+					you dislike
+				</p>
+			</div>
+			<div id="button-container"></div>
+			<textarea
+				id="input-text"
+				rows="5"
+				cols="70"
+				placeholder="Describe any other features you'd like us to find"
+			></textarea>
+			<button id="tailor">Tailor</button>
+		</div>
+		<script>
+			function sleep(ms) {
+				return new Promise((resolve) => setTimeout(resolve, ms));
+			}
+			async function sleepFunction() {
+				await sleep(10000);
+			}
+
+			const container = document.getElementById("button-container");
+			const input = document.getElementById("input-text");
+			const tailorButton = document.getElementById("tailor");
+
+			const description =
+				"elongated couch, sinuous lines, ivory, extruded design, striped, soft and rounded forms, modest simple design";
+			// Define stop words
+			const stopWords = [
+				"a",
+				"an",
+				"and",
+				"the",
+				"in",
+				"on",
+				"at",
+				"to",
+				"for",
+				"with",
+				"of",
+				"from",
+				"is",
+			];
+
+			const words = description
+				.toLowerCase()
+				.match(/\b\w+\b/g)
+				.filter((word) => !stopWords.includes(word));
+			container.innerHTML = "";
+			words.forEach((word) => {
+				sleepFunction();
+				const button = document.createElement("button");
+				button.textContent = word;
+				button.classList.add("btn");
+				button.addEventListener("click", () => {
+					button.classList.remove("red");
+					button.classList.toggle("green");
+				});
+				button.addEventListener("dblclick", () => {
+					button.classList.remove("green");
+					button.classList.add("red");
+				});
+				container.appendChild(button);
+
+				tailorButton.addEventListener("click", () => {});
+			});
+		</script>
+	</body>
+</html>
