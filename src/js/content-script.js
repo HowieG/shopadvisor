@@ -14,10 +14,12 @@ modalCssLink.href = "http://localhost:8000/src/css/modal.css";
 document.head.appendChild(modalCssLink);
 
 function createModalView(
+	productUrl,
 	imageUrl,
 	productType,
 	productConsiderations,
-	productScores
+	productScores,
+	alternatives
 ) {
 	const modal = document.createElement("div");
 	modal.classList.add("tailor-modal");
@@ -46,8 +48,11 @@ function createModalView(
 
 	const productScoresContainer = document.createElement("div");
 	productScoresContainer.id = "product-score-container"; // TODO
+	const reviewLabel = document.createElement("h2");
+	reviewLabel.innerText = "Product Review Summary";
 	const productScoresText = document.createElement("div");
 	productScoresText.innerHTML = productScores;
+	productScoresContainer.appendChild(reviewLabel);
 	productScoresContainer.appendChild(productScoresText);
 	sourceProductContainer.appendChild(productScoresContainer);
 
@@ -77,17 +82,6 @@ function createModalView(
 	const buttonContainer = document.createElement("div");
 	buttonContainer.id = "button-container";
 	tailorSelectionContainer.appendChild(buttonContainer);
-
-	const textarea = document.createElement("textarea");
-	textarea.id = "tailor-input-text-area";
-	textarea.placeholder =
-		"Enter anything else you'd like to see in your final product";
-	tailorSelectionContainer.appendChild(textarea);
-
-	const tailorButton = document.createElement("button");
-	tailorButton.id = "tailor-button";
-	tailorButton.textContent = "tailor";
-	tailorSelectionContainer.appendChild(tailorButton);
 
 	// When the user clicks the close button, delete the modal
 	modalClose.addEventListener("click", function () {
@@ -128,6 +122,48 @@ function createModalView(
 
 		buttonContainer.appendChild(buttonWrapper);
 	});
+
+	const textarea = document.createElement("textarea");
+	textarea.id = "tailor-input-text-area";
+	textarea.placeholder =
+		"Enter anything else you'd like to see in your final product";
+	tailorSelectionContainer.appendChild(textarea);
+
+	const tailorButton = document.createElement("button");
+	tailorButton.id = "tailor-button";
+	tailorButton.textContent = "tailor";
+	tailorSelectionContainer.appendChild(tailorButton);
+
+	tailorButton.addEventListener("click", async () => {
+		// Collect all buttons with classlist "like" and form the new productConsiderations
+		const likedButtons = document.querySelectorAll(".btn.like");
+		const newProductConsiderations = Array.from(likedButtons)
+			.map((button) => button.textContent)
+			.join("|");
+
+		// Remove alternativesText.innerHTML
+		alternativesText.innerHTML = "";
+
+		// Call fetchAlternatives with new considerations
+		const newAlternativesHTML = await fetchAlternatives(
+			productType,
+			productUrl, // Assuming you have access to this, or you'll need to define it
+			newProductConsiderations
+		);
+
+		// Replace alternativesText.innerHTML with the new HTML
+		alternativesText.innerHTML = newAlternativesHTML;
+	});
+
+	const alternativesContainer = document.createElement("div");
+	alternativesContainer.id = "product-score-container"; // TODO
+	const alternativesLabel = document.createElement("h2");
+	alternativesLabel.innerText = "Suggested Alternatives";
+	const alternativesText = document.createElement("div");
+	alternativesText.innerHTML = alternatives;
+	alternativesContainer.appendChild(alternativesLabel);
+	alternativesContainer.appendChild(alternativesText);
+	tailorSelectionContainer.appendChild(alternativesContainer);
 }
 
 chrome.runtime.onMessage.addListener(async function (request) {
@@ -150,11 +186,20 @@ chrome.runtime.onMessage.addListener(async function (request) {
 			request.productUrl,
 			productConsiderations
 		);
+
+		const alternatives = await fetchAlternatives(
+			productType,
+			request.productUrl,
+			productConsiderations
+		);
+
 		createModalView(
+			request.productUrl,
 			request.imageUrl,
 			productType,
 			productConsiderations,
-			productScores
+			productScores,
+			alternatives
 		);
 	}
 });
@@ -167,7 +212,7 @@ async function inquireAboutProductCategory(productUrl) {
 		be very exhaustive, come up with considerations the average person might not think about. \
 		Do not reply with a paragraph. Reply in exactly this format: \
 		ProductType: [product type] \
-		Considerations: [considerations as comma-separated list]" + productUrl;
+		Considerations: [considerations as pipe-separated list]" + productUrl;
 	const response = await fetch(`${baseUrl}/completions`, {
 		method: "POST",
 		headers: {
@@ -178,7 +223,7 @@ async function inquireAboutProductCategory(productUrl) {
 			model: OpenAIModel,
 			prompt: prompt,
 			max_tokens: 4000 - prompt.length, // Max is 4097 for this model, including prompt length. Using this to be safe
-			temperature: 0.7,
+			temperature: 0.7, // TODO: Play with this
 		}),
 	});
 
@@ -203,10 +248,9 @@ async function inquireAboutThisProduct(
 		productUrl +
 		". I'm not tied to exactly this product, I just want to get the most value for my dollar, \
 		in the same price range as this item or cheaper if there's no significant drop in quality or my considerations. \
-		Score this item from 1 to 10 according to these considerations and give a detailed explanation of each score. \
-		Return this as presentable HTML \
-		Suggest 5 alternatives that score best on these considerations and score/explain these as well. \
-		Return this as an HTML table. Product name should be anchors";
+		Score this item from 1 to 10 according to these considerations and give a detailed explanation of how this product \
+		satisfies or doesn't satisfy each consideration. \
+		Return this as an HTML table.";
 	const response = await fetch(`${baseUrl}/completions`, {
 		method: "POST",
 		headers: {
@@ -217,7 +261,46 @@ async function inquireAboutThisProduct(
 			model: OpenAIModel,
 			prompt: prompt,
 			max_tokens: 4000 - prompt.length, // Max is 4097 for this model, including prompt length. Using this to be safe
-			temperature: 0.7,
+			temperature: 0.7, // TODO: Play with this
+		}),
+	});
+
+	const data = await response.json();
+	const productScores = data.choices[0].text;
+
+	return productScores;
+}
+
+async function fetchAlternatives(
+	productType,
+	productUrl,
+	productConsiderations
+) {
+	const baseUrl = "https://api.openai.com/v1";
+	const prompt =
+		"I'm looking to buy a " +
+		productType +
+		"I have the following considerations: " +
+		productConsiderations +
+		". I'm currently viewing this product: " +
+		productUrl +
+		". I'm not tied to exactly this product, I just want to get the most value for my dollar, \
+		in the same price range as this item or cheaper if there's no significant drop in quality or my considerations. \
+		Suggest 5 alternatives that score best on these considerations. Give me the score and a detailed explanation \
+		of how this alternative satisfies this consideration. \
+		Return this as an HTML table. The table should have 5 rows, one for each suggested alternative  \
+		Product name should be anchors.";
+	const response = await fetch(`${baseUrl}/completions`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${OpenAIKey}`,
+		},
+		body: JSON.stringify({
+			model: OpenAIModel,
+			prompt: prompt,
+			max_tokens: 4000 - prompt.length, // Max is 4097 for this model, including prompt length. Using this to be safe
+			temperature: 0.7, // TODO: Play with this
 		}),
 	});
 
@@ -248,7 +331,7 @@ async function getMoreInfoAboutConsideration(productType, consideration) {
 			model: OpenAIModel,
 			prompt: prompt,
 			max_tokens: 4000 - prompt.length, // Max is 4097 for this model, including prompt length. Using this to be safe
-			temperature: 0.7,
+			temperature: 0.7, // TODO: Play with this
 		}),
 	});
 
@@ -267,14 +350,17 @@ function parseProductType(productConsiderations) {
 }
 
 function parseConsiderations(productConsiderations) {
-	const considerations = [];
-	const considerationsMatch = productConsiderations.match(/\d+\..+/g);
+	// Extract everything after "Considerations: "
+	const startIndex =
+		productConsiderations.indexOf("Considerations:") +
+		"Considerations: ".length;
+	const considerationsString = productConsiderations.substring(startIndex);
 
-	if (considerationsMatch) {
-		considerationsMatch.forEach((consideration) => {
-			considerations.push(consideration);
-		});
-	}
+	// Split the string by commas and trim any leading or trailing whitespace from each item
+	const considerations = considerationsString.split("|").map((item) => {
+		const trimmedItem = item.trim();
+		return trimmedItem.charAt(0).toUpperCase() + trimmedItem.slice(1);
+	});
 
 	return considerations;
 }
