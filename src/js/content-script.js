@@ -1,3 +1,5 @@
+const OpenAIModel = "text-davinci-003"; // TODO: Update to gpt-4
+
 // Link external CSS
 const globalCssLink = document.createElement("link");
 globalCssLink.rel = "stylesheet";
@@ -11,7 +13,12 @@ modalCssLink.type = "text/css";
 modalCssLink.href = "http://localhost:8000/src/css/modal.css";
 document.head.appendChild(modalCssLink);
 
-function createModalView(imageUrl, productType, productConsiderations) {
+function createModalView(
+	imageUrl,
+	productType,
+	productConsiderations,
+	productScores
+) {
 	const modal = document.createElement("div");
 	modal.classList.add("tailor-modal");
 	const modalContent = document.createElement("div");
@@ -30,13 +37,21 @@ function createModalView(imageUrl, productType, productConsiderations) {
 	// 	}
 	// });
 
-	const sourceImageContainer = document.createElement("div");
-	sourceImageContainer.id = "source-image-container";
+	const sourceProductContainer = document.createElement("div");
+	sourceProductContainer.id = "source-product-container";
 	const sourceImg = document.createElement("img");
 	sourceImg.id = "source-img";
 	sourceImg.src = imageUrl;
-	sourceImageContainer.appendChild(sourceImg);
-	modalContent.appendChild(sourceImageContainer);
+	sourceProductContainer.appendChild(sourceImg);
+
+	const productScoresContainer = document.createElement("div");
+	productScoresContainer.id = "product-score-container"; // TODO
+	const productScoresText = document.createElement("div");
+	productScoresText.innerHTML = productScores;
+	productScoresContainer.appendChild(productScoresText);
+	sourceProductContainer.appendChild(productScoresContainer);
+
+	modalContent.appendChild(sourceProductContainer);
 
 	const tailorSelectionContainer = document.createElement("div");
 	tailorSelectionContainer.id = "tailor-selection-container";
@@ -49,8 +64,8 @@ function createModalView(imageUrl, productType, productConsiderations) {
 	tailorSelectionContainer.appendChild(tailorTitle);
 
 	const explanatoryTextContainer = document.createElement("div");
+	explanatoryTextContainer.classList.add("explanatory-text-container"); // TODO
 	const explanatoryText1 = document.createElement("p");
-	explanatoryText1.classList.add("explanatory-text-container");
 	explanatoryText1.innerHTML =
 		"When purchasing a " +
 		productType +
@@ -83,8 +98,12 @@ function createModalView(imageUrl, productType, productConsiderations) {
 	modal.appendChild(modalContent);
 	document.body.appendChild(modal);
 
-	buttonContainer.innerHTML = "";
 	productConsiderations.forEach((token) => {
+		const buttonWrapper = document.createElement("div");
+		buttonWrapper.style.position = "relative";
+		buttonWrapper.style.display = "inline-block";
+		buttonWrapper.classList.add("btn-wrapper");
+
 		const button = document.createElement("button");
 		button.textContent = token;
 		button.style.fontSize = "10px";
@@ -93,11 +112,21 @@ function createModalView(imageUrl, productType, productConsiderations) {
 			button.classList.remove("dislike");
 			button.classList.toggle("like");
 		});
-		button.addEventListener("dblclick", () => {
-			button.classList.remove("like");
-			button.classList.add("dislike");
-		});
-		buttonContainer.appendChild(button);
+		buttonWrapper.appendChild(button);
+
+		// const questionMark = document.createElement("span");
+		// questionMark.textContent = "\u24E8"; // Unicode for circled question mark
+		// questionMark.style.position = "absolute";
+		// questionMark.style.top = "0";
+		// questionMark.style.right = "0";
+		// questionMark.style.cursor = "pointer";
+		// questionMark.addEventListener("click", () => {
+		// 	// Call a function or perform the action you want here
+		// 	getMoreInfoAboutConsideration(productType, token); // TODO
+		// });
+		// buttonWrapper.appendChild(questionMark);
+
+		buttonContainer.appendChild(buttonWrapper);
 	});
 }
 
@@ -116,30 +145,109 @@ chrome.runtime.onMessage.addListener(async function (request) {
 		const productConsiderations = parseConsiderations(
 			productCategoryInquiry
 		);
-		createModalView(request.imageUrl, productType, productConsiderations);
+		const productScores = await inquireAboutThisProduct(
+			productType,
+			request.productUrl,
+			productConsiderations
+		);
+		createModalView(
+			request.imageUrl,
+			productType,
+			productConsiderations,
+			productScores
+		);
 	}
 });
 
 async function inquireAboutProductCategory(productUrl) {
 	const baseUrl = "https://api.openai.com/v1";
-	const OpenAIToken = "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";
 	const prompt =
 		"what type of product is this? \
 		what are some important things a consumer should consider when buying this type of product? \
 		be very exhaustive, come up with considerations the average person might not think about. \
 		Do not reply with a paragraph. Reply in exactly this format: \
 		ProductType: [product type] \
-		Considerations: [considerations as an enumerated list]" + productUrl;
+		Considerations: [considerations as comma-separated list]" + productUrl;
 	const response = await fetch(`${baseUrl}/completions`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
-			Authorization: `Bearer ${OpenAIToken}`,
+			Authorization: `Bearer ${OpenAIKey}`,
 		},
 		body: JSON.stringify({
-			model: "text-davinci-003",
+			model: OpenAIModel,
 			prompt: prompt,
-			max_tokens: 500,
+			max_tokens: 4000 - prompt.length, // Max is 4097 for this model, including prompt length. Using this to be safe
+			temperature: 0.7,
+		}),
+	});
+
+	const data = await response.json();
+	const productConsiderations = data.choices[0].text;
+
+	return productConsiderations;
+}
+
+async function inquireAboutThisProduct(
+	productType,
+	productUrl,
+	productConsiderations
+) {
+	const baseUrl = "https://api.openai.com/v1";
+	const prompt =
+		"I'm looking to buy a " +
+		productType +
+		"I have the following considerations: " +
+		productConsiderations +
+		". I'm currently viewing this product: " +
+		productUrl +
+		". I'm not tied to exactly this product, I just want to get the most value for my dollar, \
+		in the same price range as this item or cheaper if there's no significant drop in quality or my considerations. \
+		Score this item from 1 to 10 according to these considerations and give a detailed explanation of each score. \
+		Return this as presentable HTML \
+		Suggest 5 alternatives that score best on these considerations and score/explain these as well. \
+		Return this as an HTML table. Product name should be anchors";
+	const response = await fetch(`${baseUrl}/completions`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${OpenAIKey}`,
+		},
+		body: JSON.stringify({
+			model: OpenAIModel,
+			prompt: prompt,
+			max_tokens: 4000 - prompt.length, // Max is 4097 for this model, including prompt length. Using this to be safe
+			temperature: 0.7,
+		}),
+	});
+
+	const data = await response.json();
+	const productScores = data.choices[0].text;
+
+	return productScores;
+}
+
+async function getMoreInfoAboutConsideration(productType, consideration) {
+	const baseUrl = "https://api.openai.com/v1";
+	const prompt =
+		"As it pertains to " +
+		productType +
+		", what is the importance of" +
+		consideration +
+		". If " +
+		consideration +
+		"is not something the average consumer would be expected to know about, \
+		 please give a consumer-level explanation of the concept first.";
+	const response = await fetch(`${baseUrl}/completions`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${OpenAIKey}`,
+		},
+		body: JSON.stringify({
+			model: OpenAIModel,
+			prompt: prompt,
+			max_tokens: 4000 - prompt.length, // Max is 4097 for this model, including prompt length. Using this to be safe
 			temperature: 0.7,
 		}),
 	});
@@ -170,8 +278,6 @@ function parseConsiderations(productConsiderations) {
 
 	return considerations;
 }
-
-// const TheNextLegToken = "bc9150d1-ec69-40f2-a5f8-3b16a0ef3712";
 
 // async function callImg2Txt(imageUrl) {
 // 	const url = "https://api.thenextleg.io/v2/describe";
@@ -225,7 +331,7 @@ function parseConsiderations(productConsiderations) {
 
 // async function distillDescription(descriptionArray) {
 // 	const baseUrl = "https://api.openai.com/v1";
-// 	const OpenAIToken = "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";
+// 	const OpenAIToken = "";
 // 	const superDescription = descriptionArray.join(" ");
 // 	const prompt =
 // 		"I am writing a bulleted product description of the product described above. distill the description into the essential/unique words or phrases that describe its visual form, style, materials, design. separate every word or phrase by comma. no names of people";
