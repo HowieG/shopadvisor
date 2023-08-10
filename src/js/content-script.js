@@ -166,32 +166,40 @@ function createModalView(
 
 chrome.runtime.onMessage.addListener(async function (request) {
 	if (request.action === "openModalView") {
-		const productCategoryInquiry = await gpt(
-			inquireAboutProductCategoryPrompt(request.productUrl),
+		const productType = await gpt(
+			getProductTypePrompt(request.productUrl),
 			gpt3turbo4k,
-			2000
+			10,
+			0
 		);
 
-		const productType = parseProductType(productCategoryInquiry);
-		const productConsiderations = parseConsiderations(
-			productCategoryInquiry
-		);
-		const productScores = await gpt(
-			inquireAboutThisProductPrompt(
-				productType,
-				request.productUrl,
-				productConsiderations.slice(0, 10)
-			)
+		let productConsiderations = await gpt(
+			getConsiderationsPrompt(productType),
+			gpt3turbo4k,
+			200
 		);
 
-		const alternatives = await gpt(
-			suggestAlternativesPrompt(
-				productType,
-				request.productUrl,
-				productConsiderations.slice(0, 10)
+		// For now, convert pipe-separated list to array
+		productConsiderations = productConsiderations.split("|");
+
+		// Fetch productScores and alternatives at the same time
+		const [productScores, alternatives] = await Promise.all([
+			gpt(
+				getProductReviewPrompt(
+					productType,
+					productConsiderations.slice(0, 10),
+					request.productUrl
+				)
 			),
-			gpt3turbo16k
-		);
+			gpt(
+				getAlternativeSuggestionsPrompt(
+					productType,
+					productConsiderations.slice(0, 10),
+					request.productUrl
+				),
+				gpt3turbo16k
+			),
+		]);
 
 		createModalView(
 			request.productUrl,
@@ -203,30 +211,6 @@ chrome.runtime.onMessage.addListener(async function (request) {
 		);
 	}
 });
-
-function parseProductType(productConsiderations) {
-	const productTypeMatch = productConsiderations.match(
-		/ProductType: ([^\n]*)/
-	);
-	const productType = productTypeMatch ? productTypeMatch[1] : "Unknown";
-	return productType;
-}
-
-function parseConsiderations(productConsiderations) {
-	// Extract everything after "Considerations: "
-	const startIndex =
-		productConsiderations.indexOf("Considerations:") +
-		"Considerations: ".length;
-	const considerationsString = productConsiderations.substring(startIndex);
-
-	// Split the string by commas and trim any leading or trailing whitespace from each item
-	const considerations = considerationsString.split("|").map((item) => {
-		const trimmedItem = item.trim();
-		return trimmedItem.charAt(0).toUpperCase() + trimmedItem.slice(1);
-	});
-
-	return considerations;
-}
 
 async function gpt(
 	prompt,
@@ -280,7 +264,7 @@ const gpt3turbo16k = {
 	max_tokens: 16000,
 };
 
-function considerationDetailsPrompt(productType, consideration) {
+function getConsiderationDetailsPrompt(productType, consideration) {
 	return (
 		"As it pertains to " +
 		productType +
@@ -293,7 +277,7 @@ function considerationDetailsPrompt(productType, consideration) {
 	);
 }
 
-function suggestAlternativesPrompt(
+function getAlternativeSuggestionsPrompt(
 	productType,
 	productConsiderations,
 	productUrl
@@ -301,7 +285,7 @@ function suggestAlternativesPrompt(
 	return (
 		"I'm looking to buy a " +
 		productType +
-		"I have the following considerations: " +
+		". I have the following considerations: " +
 		productConsiderations +
 		". I'm currently viewing this product: " +
 		productUrl +
@@ -314,7 +298,7 @@ function suggestAlternativesPrompt(
 	);
 }
 
-function inquireAboutThisProductPrompt(
+function getProductReviewPrompt(
 	productType,
 	productConsiderations,
 	productUrl
@@ -322,27 +306,33 @@ function inquireAboutThisProductPrompt(
 	return (
 		"I'm looking to buy a " +
 		productType +
-		"I have the following considerations: " +
+		". I have the following considerations: " +
 		productConsiderations +
 		". I'm currently viewing this product: " +
 		productUrl +
-		". I'm not tied to exactly this product, I just want to get the most value for my dollar, \
-		in the same price range as this item or cheaper if there's no significant drop in quality or my considerations. \
-		Score this item from 1 to 10 according to these considerations and give a detailed explanation of how this product \
+		"Score this item from 1 to 10 according to these considerations and give a detailed explanation of how this product \
 		satisfies or doesn't satisfy each consideration. \
 		Return this as an HTML table format using table, tr, th, td. \
 		Let's think step by step. It is very imporant that only HTML is returned"
 	);
 }
 
-function inquireAboutProductCategoryPrompt(productUrl) {
+function getProductTypePrompt(productUrl) {
 	return (
-		"what type of product is this? \
-		what are some important things a consumer should consider when buying this type of product? \
-		be very exhaustive, come up with considerations the average person might not think about. \
-		Do not reply with a paragraph. Reply in exactly this format: \
-		ProductType: [product type] \
-		Considerations: [considerations as pipe-separated list]" + productUrl
+		"what type of product is this? " +
+		productUrl +
+		". Reply with just the product type"
+	);
+}
+
+function getConsiderationsPrompt(productType) {
+	return (
+		"what are some important things a consumer should consider when buying a " +
+		productType +
+		"? come up with considerations the average person might not think about.\
+		Be exhaustive but not repetetive. Unique insights i.e. features that are unique to this product type \
+		e.g. not warranty, design, etc. Think outside of the box. \
+		Reply with just a pipe-separated list"
 	);
 }
 

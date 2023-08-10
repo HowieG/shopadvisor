@@ -58,16 +58,9 @@
 
 #tailor-selection-container {
 	display: inline-block;
-	top: 40%;
-	width: 70%;
 	margin-left: 25px;
 	vertical-align: top;
 	margin-bottom: 30px;
-
-	/* position: absolute;
-	top: 50%;
-	left: 70%;
-	transform: translate(-50%, -50%); */
 }
 
 #source-img {
