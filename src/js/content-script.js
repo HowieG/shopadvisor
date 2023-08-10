@@ -1,5 +1,3 @@
-const OpenAIModel = "text-davinci-003"; // TODO: Update to gpt-4
-
 // Link external CSS
 const globalCssLink = document.createElement("link");
 globalCssLink.rel = "stylesheet";
@@ -141,17 +139,17 @@ function createModalView(
 			.map((button) => button.textContent)
 			.join("|");
 
-		// Remove alternativesText.innerHTML
+		// Fetch new suggestions and replace HTML
 		alternativesText.innerHTML = "";
 
-		// Call fetchAlternatives with new considerations
-		const newAlternativesHTML = await fetchAlternatives(
-			productType,
-			productUrl, // Assuming you have access to this, or you'll need to define it
-			newProductConsiderations
+		const newAlternativesHTML = await gpt(
+			suggestAlternativesPrompt(
+				productType,
+				productUrl,
+				newProductConsiderations
+			)
 		);
 
-		// Replace alternativesText.innerHTML with the new HTML
 		alternativesText.innerHTML = newAlternativesHTML;
 	});
 
@@ -168,29 +166,31 @@ function createModalView(
 
 chrome.runtime.onMessage.addListener(async function (request) {
 	if (request.action === "openModalView") {
-		const productCategoryInquiry = await inquireAboutProductCategory(
-			request.productUrl
+		const productCategoryInquiry = await gpt(
+			inquireAboutProductCategoryPrompt(request.productUrl),
+			gpt3turbo4k,
+			2000
 		);
-
-		// const descriptionArray = await callImg2Txt(request.imageUrl);
-		// let distilledDescriptionArray = await distillDescription(
-		// 	descriptionArray
-		// );
 
 		const productType = parseProductType(productCategoryInquiry);
 		const productConsiderations = parseConsiderations(
 			productCategoryInquiry
 		);
-		const productScores = await inquireAboutThisProduct(
-			productType,
-			request.productUrl,
-			productConsiderations
+		const productScores = await gpt(
+			inquireAboutThisProductPrompt(
+				productType,
+				request.productUrl,
+				productConsiderations.slice(0, 10)
+			)
 		);
 
-		const alternatives = await fetchAlternatives(
-			productType,
-			request.productUrl,
-			productConsiderations
+		const alternatives = await gpt(
+			suggestAlternativesPrompt(
+				productType,
+				request.productUrl,
+				productConsiderations.slice(0, 10)
+			),
+			gpt3turbo16k
 		);
 
 		createModalView(
@@ -203,143 +203,6 @@ chrome.runtime.onMessage.addListener(async function (request) {
 		);
 	}
 });
-
-async function inquireAboutProductCategory(productUrl) {
-	const baseUrl = "https://api.openai.com/v1";
-	const prompt =
-		"what type of product is this? \
-		what are some important things a consumer should consider when buying this type of product? \
-		be very exhaustive, come up with considerations the average person might not think about. \
-		Do not reply with a paragraph. Reply in exactly this format: \
-		ProductType: [product type] \
-		Considerations: [considerations as pipe-separated list]" + productUrl;
-	const response = await fetch(`${baseUrl}/completions`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${OpenAIKey}`,
-		},
-		body: JSON.stringify({
-			model: OpenAIModel,
-			prompt: prompt,
-			max_tokens: 4000 - prompt.length, // Max is 4097 for this model, including prompt length. Using this to be safe
-			temperature: 0.7, // TODO: Play with this
-		}),
-	});
-
-	const data = await response.json();
-	const productConsiderations = data.choices[0].text;
-
-	return productConsiderations;
-}
-
-async function inquireAboutThisProduct(
-	productType,
-	productUrl,
-	productConsiderations
-) {
-	const baseUrl = "https://api.openai.com/v1";
-	const prompt =
-		"I'm looking to buy a " +
-		productType +
-		"I have the following considerations: " +
-		productConsiderations +
-		". I'm currently viewing this product: " +
-		productUrl +
-		". I'm not tied to exactly this product, I just want to get the most value for my dollar, \
-		in the same price range as this item or cheaper if there's no significant drop in quality or my considerations. \
-		Score this item from 1 to 10 according to these considerations and give a detailed explanation of how this product \
-		satisfies or doesn't satisfy each consideration. \
-		Return this as an HTML table.";
-	const response = await fetch(`${baseUrl}/completions`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${OpenAIKey}`,
-		},
-		body: JSON.stringify({
-			model: OpenAIModel,
-			prompt: prompt,
-			max_tokens: 4000 - prompt.length, // Max is 4097 for this model, including prompt length. Using this to be safe
-			temperature: 0.7, // TODO: Play with this
-		}),
-	});
-
-	const data = await response.json();
-	const productScores = data.choices[0].text;
-
-	return productScores;
-}
-
-async function fetchAlternatives(
-	productType,
-	productUrl,
-	productConsiderations
-) {
-	const baseUrl = "https://api.openai.com/v1";
-	const prompt =
-		"I'm looking to buy a " +
-		productType +
-		"I have the following considerations: " +
-		productConsiderations +
-		". I'm currently viewing this product: " +
-		productUrl +
-		". I'm not tied to exactly this product, I just want to get the most value for my dollar, \
-		in the same price range as this item or cheaper if there's no significant drop in quality or my considerations. \
-		Suggest 5 alternatives that score best on these considerations. Give me the score and a detailed explanation \
-		of how this alternative satisfies this consideration. \
-		Return this as an HTML table. The table should have 5 rows, one for each suggested alternative  \
-		Product name should be anchors.";
-	const response = await fetch(`${baseUrl}/completions`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${OpenAIKey}`,
-		},
-		body: JSON.stringify({
-			model: OpenAIModel,
-			prompt: prompt,
-			max_tokens: 4000 - prompt.length, // Max is 4097 for this model, including prompt length. Using this to be safe
-			temperature: 0.7, // TODO: Play with this
-		}),
-	});
-
-	const data = await response.json();
-	const productScores = data.choices[0].text;
-
-	return productScores;
-}
-
-async function getMoreInfoAboutConsideration(productType, consideration) {
-	const baseUrl = "https://api.openai.com/v1";
-	const prompt =
-		"As it pertains to " +
-		productType +
-		", what is the importance of" +
-		consideration +
-		". If " +
-		consideration +
-		"is not something the average consumer would be expected to know about, \
-		 please give a consumer-level explanation of the concept first.";
-	const response = await fetch(`${baseUrl}/completions`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${OpenAIKey}`,
-		},
-		body: JSON.stringify({
-			model: OpenAIModel,
-			prompt: prompt,
-			max_tokens: 4000 - prompt.length, // Max is 4097 for this model, including prompt length. Using this to be safe
-			temperature: 0.7, // TODO: Play with this
-		}),
-	});
-
-	const data = await response.json();
-	const productConsiderations = data.choices[0].text;
-
-	return productConsiderations;
-}
 
 function parseProductType(productConsiderations) {
 	const productTypeMatch = productConsiderations.match(
@@ -365,83 +228,157 @@ function parseConsiderations(productConsiderations) {
 	return considerations;
 }
 
-// async function callImg2Txt(imageUrl) {
-// 	const url = "https://api.thenextleg.io/v2/describe";
-// 	const body = {
-// 		url: imageUrl,
-// 	};
+async function gpt(
+	prompt,
+	model = gpt3turbo4k,
+	maxTokensOverride = null,
+	temperatureOverride = null
+) {
+	console.log(prompt);
 
-// 	try {
-// 		const response = await fetch(url, {
-// 			method: "POST",
-// 			headers: {
-// 				"Content-Type": "application/json",
-// 				Authorization: `Bearer ${TheNextLegToken}`,
-// 			},
-// 			body: JSON.stringify(body),
-// 		});
+	const baseUrl = "https://api.openai.com/v1";
+	const response = await fetch(`${baseUrl}/chat/completions`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${OpenAIKey}`,
+		},
+		body: JSON.stringify({
+			model: model.model,
+			messages: [
+				{
+					role: "system",
+					content:
+						"You are ShopAdvisor, a shopping assistant helping consumers discover and narrow \
+						down exactly what products they are searching for",
+				},
+				{
+					role: "user",
+					content: prompt,
+				},
+			],
+			max_tokens: maxTokensOverride
+				? maxTokensOverride
+				: model.max_tokens - prompt.length,
+			temperature: temperatureOverride ? temperatureOverride : 0.7, // TODO: Play with this
+		}),
+	});
 
-// 		const data = await response.json();
-// 		const messageId = data.messageId;
-// 		return await getMessage(messageId);
-// 	} catch (error) {
-// 		console.error("Error:", error);
-// 	}
-// }
+	const data = await response.json();
+	const res = data.choices[0].message.content;
 
-// async function getMessage(messageId) {
-// 	const url = `https://api.thenextleg.io/v2/message/${messageId}`;
+	return res;
+}
 
-// 	try {
-// 		let data;
-// 		do {
-// 			const response = await fetch(url, {
-// 				method: "GET",
-// 				headers: {
-// 					"Content-Type": "application/json",
-// 					Authorization: `Bearer ${TheNextLegToken}`,
-// 				},
-// 			});
+const gpt3turbo4k = {
+	model: "gpt-3.5-turbo-16k",
+	max_tokens: 4000,
+};
 
-// 			data = await response.json();
-// 			if (data.progress !== 100) {
-// 				await new Promise((r) => setTimeout(r, 100));
-// 			}
-// 		} while (data.progress !== 100); // temporary hack until I set up a webhook
+const gpt3turbo16k = {
+	model: "gpt-3.5-turbo-16k",
+	max_tokens: 16000,
+};
 
-// 		return data.response.content;
-// 	} catch (error) {
-// 		console.error("Error:", error);
-// 	}
-// }
+function considerationDetailsPrompt(productType, consideration) {
+	return (
+		"As it pertains to " +
+		productType +
+		", what is the importance of" +
+		consideration +
+		". If " +
+		consideration +
+		"is not something the average consumer would be expected to know about, \
+		 please give a consumer-level explanation of the concept first."
+	);
+}
 
-// async function distillDescription(descriptionArray) {
-// 	const baseUrl = "https://api.openai.com/v1";
-// 	const OpenAIToken = "";
-// 	const superDescription = descriptionArray.join(" ");
-// 	const prompt =
-// 		"I am writing a bulleted product description of the product described above. distill the description into the essential/unique words or phrases that describe its visual form, style, materials, design. separate every word or phrase by comma. no names of people";
+function suggestAlternativesPrompt(
+	productType,
+	productConsiderations,
+	productUrl
+) {
+	return (
+		"I'm looking to buy a " +
+		productType +
+		"I have the following considerations: " +
+		productConsiderations +
+		". I'm currently viewing this product: " +
+		productUrl +
+		". I'm not tied to exactly this product, I just want to get the most value for my dollar, \
+		in the same price range as this item or cheaper if there's no significant drop in quality or my considerations. \
+		Suggest 5 alternatives that score best on these considerations. Give me the score and a detailed explanation \
+		of how this alternative satisfies this consideration. \
+		Return all of that in HTML table format using table, tr, th, td. The table should have 5 rows, one for each suggested alternative.  \
+		Product name should be links. Let's think step by step. It is very imporant that only HTML is returned"
+	);
+}
 
-// 	const response = await fetch(`${baseUrl}/completions`, {
-// 		method: "POST",
-// 		headers: {
-// 			"Content-Type": "application/json",
-// 			Authorization: `Bearer ${OpenAIToken}`,
-// 		},
-// 		body: JSON.stringify({
-// 			model: "text-davinci-003",
-// 			prompt: `${superDescription} ${prompt}`,
-// 			max_tokens: 250,
-// 			temperature: 0.7,
-// 		}),
-// 	});
+function inquireAboutThisProductPrompt(
+	productType,
+	productConsiderations,
+	productUrl
+) {
+	return (
+		"I'm looking to buy a " +
+		productType +
+		"I have the following considerations: " +
+		productConsiderations +
+		". I'm currently viewing this product: " +
+		productUrl +
+		". I'm not tied to exactly this product, I just want to get the most value for my dollar, \
+		in the same price range as this item or cheaper if there's no significant drop in quality or my considerations. \
+		Score this item from 1 to 10 according to these considerations and give a detailed explanation of how this product \
+		satisfies or doesn't satisfy each consideration. \
+		Return this as an HTML table format using table, tr, th, td. \
+		Let's think step by step. It is very imporant that only HTML is returned"
+	);
+}
 
-// 	const data = await response.json();
-// 	const rawDescription = data.choices[0].text;
-// 	const distilledDescriptionArray = rawDescription
-// 		.replace(/\n/g, "")
-// 		.replace(/\.$/, "")
-// 		.split(", ");
+function inquireAboutProductCategoryPrompt(productUrl) {
+	return (
+		"what type of product is this? \
+		what are some important things a consumer should consider when buying this type of product? \
+		be very exhaustive, come up with considerations the average person might not think about. \
+		Do not reply with a paragraph. Reply in exactly this format: \
+		ProductType: [product type] \
+		Considerations: [considerations as pipe-separated list]" + productUrl
+	);
+}
 
-// 	return distilledDescriptionArray;
-// }
+/*
+
+top_p
+number or null
+Optional
+Defaults to 1
+An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with top_p probability mass. So 0.1 means only the tokens comprising the top 10% probability mass are considered.
+
+We generally recommend altering this or temperature but not both.
+
+presence_penalty
+number or null
+Optional
+Defaults to 0
+Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics.
+
+frequency_penalty
+number or null
+Optional
+Defaults to 0
+Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.
+
+
+logit_bias
+map
+Optional
+Defaults to null
+Modify the likelihood of specified tokens appearing in the completion.
+
+Accepts a json object that maps tokens (specified by their token ID in the tokenizer) to an associated bias value from -100 to 100. Mathematically, the bias is added to the logits generated by the model prior to sampling. The exact effect will vary per model, but values between -1 and 1 should decrease or increase likelihood of selection; values like -100 or 100 should result in a ban or exclusive selection of the relevant token.
+
+
+
+
+
+*/
