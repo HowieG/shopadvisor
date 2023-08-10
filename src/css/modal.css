@@ -22,6 +22,7 @@
 	display: flex;
 	padding: 10px;
 	object-fit: contain;
+	justify-content: space-between;
 }
 
 .tailor-modal-close {
@@ -47,6 +48,7 @@
 
 #source-product-container {
 	display: flex;
+	width: 50%;
 	flex-direction: column;
 	align-items: center;
 	margin-right: 15px;
@@ -58,6 +60,7 @@
 
 #tailor-selection-container {
 	display: inline-block;
+	width: 50%;
 	margin-left: 25px;
 	vertical-align: top;
 	margin-bottom: 30px;
@@ -71,8 +74,7 @@
 }
 
 .explanatory-text-container {
-	color: var(--tailor-darkbrown);
-	margin: 0;
+	margin: 20px 0;
 }
 
 #button-container {
@@ -95,6 +97,14 @@
 	transition: background-color 0.3s ease;
 }
 
+.btn:hover {
+	background-color: #d5d5d5;
+}
+
+.btn:active {
+	background-color: #b5b5b5;
+}
+
 .btn.like {
 	background-color: var(--tailor-green);
 	color: #fff;
@@ -105,15 +115,21 @@
 	color: #fff;
 }
 
+#tailor-input-container {
+	display: flex;
+	align-items: center;
+	justify-content: space-between; /* or use flex-start if you want them close together */
+}
+
 #tailor-input-text-area {
-	display: block;
+	flex: 1;
 	resize: none;
 	height: 75px;
 	width: 100%;
 	font-size: 20px;
 	margin: 10px auto;
 	margin-left: auto;
-	margin-right: auto;
+	margin-right: 10px;
 }
 
 #tailor-input-text-area::placeholder {

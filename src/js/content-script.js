@@ -1,3 +1,5 @@
+const LONG_PRESS_DURATION = 1500;
+
 // Link external CSS
 const globalCssLink = document.createElement("link");
 globalCssLink.rel = "stylesheet";
@@ -24,12 +26,6 @@ function createModalView(
 	const modalContent = document.createElement("div");
 	modalContent.classList.add("tailor-modal-content");
 
-	// Close modal button
-	const modalClose = document.createElement("span");
-	modalClose.classList.add("tailor-modal-close");
-	modalClose.textContent = "\u00D7";
-	modalContent.appendChild(modalClose);
-
 	// When the user clicks anywhere outside of the modal, close it
 	// window.addEventListener("click", function (event) {
 	// 	if (event.target != modal) {
@@ -39,6 +35,12 @@ function createModalView(
 
 	const sourceProductContainer = document.createElement("div");
 	sourceProductContainer.id = "source-product-container";
+
+	const shopAdvisorTitle = document.createElement("h1");
+	shopAdvisorTitle.id = "tailor-title";
+	shopAdvisorTitle.innerText = "ShopAdvisor";
+	sourceProductContainer.appendChild(shopAdvisorTitle);
+
 	const sourceImg = document.createElement("img");
 	sourceImg.id = "source-img";
 	sourceImg.src = imageUrl;
@@ -59,21 +61,15 @@ function createModalView(
 	const tailorSelectionContainer = document.createElement("div");
 	tailorSelectionContainer.id = "tailor-selection-container";
 
-	const tailorTitle = document.createElement("h1");
-	tailorTitle.id = "tailor-title";
-	var tailorColoredHTML =
-		"t<span style='color: var(--tailor-green);'>ai</span>lor";
-	tailorTitle.innerHTML = tailorColoredHTML;
-	tailorSelectionContainer.appendChild(tailorTitle);
-
 	const explanatoryTextContainer = document.createElement("div");
 	explanatoryTextContainer.classList.add("explanatory-text-container"); // TODO
 	const explanatoryText1 = document.createElement("p");
 	explanatoryText1.innerHTML =
 		"When purchasing a " +
 		productType +
-		", it's important to consider the following. \
-		Please select the features you care about.";
+		", it's important to consider the following.<br>" +
+		"Select the features you care about to help guide your search.<br>" +
+		"Hold down on a feature to learn more about it.";
 	explanatoryTextContainer.appendChild(explanatoryText1);
 	tailorSelectionContainer.appendChild(explanatoryTextContainer);
 
@@ -81,16 +77,13 @@ function createModalView(
 	buttonContainer.id = "button-container";
 	tailorSelectionContainer.appendChild(buttonContainer);
 
-	// When the user clicks the close button, delete the modal
-	modalClose.addEventListener("click", function () {
-		modal.remove();
-	});
-
 	modalContent.appendChild(tailorSelectionContainer);
 	modal.appendChild(modalContent);
 	document.body.appendChild(modal);
 
 	productConsiderations.forEach((token) => {
+		let timer;
+
 		const buttonWrapper = document.createElement("div");
 		buttonWrapper.style.position = "relative";
 		buttonWrapper.style.display = "inline-block";
@@ -100,37 +93,74 @@ function createModalView(
 		button.textContent = token;
 		button.style.fontSize = "10px";
 		button.classList.add("btn");
-		button.addEventListener("click", () => {
-			button.classList.remove("dislike");
-			button.classList.toggle("like");
+
+		let isLongPress = false; // A variable to track the state of the long press
+
+		button.addEventListener("mousedown", () => {
+			timer = setTimeout(() => {
+				isLongPress = true; // Set the state to true if the button is pressed for 1500ms
+
+				const considerationDetails = document.getElementById(
+					"consideration-details"
+				);
+
+				considerationDetails.innerHTML =
+					"Loading helpful info about this attribute...";
+
+				considerationDetails.style.display = "block";
+
+				// Fetch the consideration details asynchronously
+				gpt(getConsiderationDetailsPrompt(productType, token)).then(
+					(details) => {
+						considerationDetails.innerHTML = details;
+					}
+				);
+			}, LONG_PRESS_DURATION);
 		});
+
+		// Add a mouse up listener to clear the timer if the button is released
+		button.addEventListener("mouseup", () => {
+			clearTimeout(timer);
+			if (!isLongPress) {
+				button.classList.remove("dislike");
+				button.classList.toggle("like");
+			}
+			isLongPress = false; // Reset the state
+		});
+
+		// Add a mouse leave listener to clear the timer if the mouse leaves the button
+		button.addEventListener("mouseleave", () => {
+			clearTimeout(timer);
+			isLongPress = false; // Reset the state
+		});
+
 		buttonWrapper.appendChild(button);
-
-		// const questionMark = document.createElement("span");
-		// questionMark.textContent = "\u24E8"; // Unicode for circled question mark
-		// questionMark.style.position = "absolute";
-		// questionMark.style.top = "0";
-		// questionMark.style.right = "0";
-		// questionMark.style.cursor = "pointer";
-		// questionMark.addEventListener("click", () => {
-		// 	// Call a function or perform the action you want here
-		// 	getMoreInfoAboutConsideration(productType, token); // TODO
-		// });
-		// buttonWrapper.appendChild(questionMark);
-
 		buttonContainer.appendChild(buttonWrapper);
 	});
 
+	const considerationDetailsContainer = document.createElement("div");
+	considerationDetailsContainer.id = "consideration-details";
+	considerationDetailsContainer.innerHTML =
+		"Loading helpful info about this attribute...";
+	considerationDetailsContainer.style.height = "auto";
+	considerationDetailsContainer.style.width = "auto";
+	considerationDetailsContainer.style.display = "none";
+	tailorSelectionContainer.appendChild(considerationDetailsContainer);
+
+	const inputContainer = document.createElement("div");
+	inputContainer.id = "tailor-input-container";
+
 	const textarea = document.createElement("textarea");
 	textarea.id = "tailor-input-text-area";
-	textarea.placeholder =
-		"Enter anything else you'd like to see in your final product";
-	tailorSelectionContainer.appendChild(textarea);
+	textarea.placeholder = "Enter anything else to tailor your search";
+	inputContainer.appendChild(textarea);
 
 	const tailorButton = document.createElement("button");
 	tailorButton.id = "tailor-button";
-	tailorButton.textContent = "tailor";
-	tailorSelectionContainer.appendChild(tailorButton);
+	tailorButton.textContent = "Search";
+	inputContainer.appendChild(tailorButton);
+
+	tailorSelectionContainer.appendChild(inputContainer);
 
 	tailorButton.addEventListener("click", async () => {
 		// Collect all buttons with classlist "like" and form the new productConsiderations
@@ -162,6 +192,16 @@ function createModalView(
 	alternativesContainer.appendChild(alternativesLabel);
 	alternativesContainer.appendChild(alternativesText);
 	tailorSelectionContainer.appendChild(alternativesContainer);
+
+	// Close modal button
+	const modalClose = document.createElement("span");
+	modalClose.classList.add("tailor-modal-close");
+	modalClose.textContent = "\u00D7";
+	modalContent.appendChild(modalClose);
+
+	modalClose.addEventListener("click", function () {
+		modal.remove();
+	});
 }
 
 chrome.runtime.onMessage.addListener(async function (request) {
@@ -176,7 +216,7 @@ chrome.runtime.onMessage.addListener(async function (request) {
 		let productConsiderations = await gpt(
 			getConsiderationsPrompt(productType),
 			gpt3turbo4k,
-			200
+			100
 		);
 
 		// For now, convert pipe-separated list to array
@@ -289,12 +329,10 @@ function getAlternativeSuggestionsPrompt(
 		productConsiderations +
 		". I'm currently viewing this product: " +
 		productUrl +
-		". I'm not tied to exactly this product, I just want to get the most value for my dollar, \
-		in the same price range as this item or cheaper if there's no significant drop in quality or my considerations. \
-		Suggest 5 alternatives that score best on these considerations. Give me the score and a detailed explanation \
-		of how this alternative satisfies this consideration. \
-		Return all of that in HTML table format using table, tr, th, td. The table should have 5 rows, one for each suggested alternative.  \
-		Product name should be links. Let's think step by step. It is very imporant that only HTML is returned"
+		". Recommend me 5 alternative products. Score the alternatives from 1 to 10 according to these considerations and give a \
+		detailed explanation of how the alternative satisfies or doesn't satisfy each consideration. \
+		Return each as an HTML table format using table, tr, th, td. The product name should link to the recommended product\
+		Let's think step by step. It is very imporant that HTML is returned"
 	);
 }
 
@@ -310,8 +348,8 @@ function getProductReviewPrompt(
 		productConsiderations +
 		". I'm currently viewing this product: " +
 		productUrl +
-		"Score this item from 1 to 10 according to these considerations and give a detailed explanation of how this product \
-		satisfies or doesn't satisfy each consideration. \
+		". Score this item from 1 to 10 according to these considerations and give a detailed explanation of how this product \
+		satisfies or doesn't satisfy each consideration. For each consideration compare it to other products that excel at them. \
 		Return this as an HTML table format using table, tr, th, td. \
 		Let's think step by step. It is very imporant that only HTML is returned"
 	);
