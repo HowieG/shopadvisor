@@ -143,10 +143,10 @@ function createModalView(
 		alternativesText.innerHTML = "";
 
 		const newAlternativesHTML = await gpt(
-			suggestAlternativesPrompt(
+			getAlternativeSuggestionsPrompt(
 				productType,
-				productUrl,
-				newProductConsiderations
+				newProductConsiderations,
+				productUrl
 			)
 		);
 
